@@ -4,7 +4,7 @@ use rand::rngs::OsRng;
 use rand::RngCore;
 use rayon::prelude::*;
 use serde_json::json;
-use solana_sdk::signature::{Keypair, Signer};
+use solana_sdk::signature::{Keypair, SeedDerivable, Signer};
 use std::fs;
 use std::io::Write;
 use std::path::Path;
@@ -193,7 +193,11 @@ fn main() {
             rng.fill_bytes(&mut entropy);
 
             let mnemonic = Mnemonic::from_entropy_in(Language::English, &entropy).unwrap();
-            let keypair = Keypair::new();
+            
+            // Generate keypair from the mnemonic seed to ensure they match
+            let seed = mnemonic.to_seed("");
+            // Create ed25519 keypair from seed
+            let keypair = Keypair::from_seed(&seed[..32]).unwrap();
             let pubkey = bs58::encode(keypair.pubkey().to_bytes()).into_string();
 
             local_iterations += 1;
