@@ -22,6 +22,7 @@ path = "src/lib.rs"
 solana-sdk = "1.18"
 bip39 = "2.0"
 bs58 = "0.5"
+slip10 = "0.4"
 rand = "0.8"
 rayon = "1.8"
 clap = { version = "4.0", features = ["derive"] }

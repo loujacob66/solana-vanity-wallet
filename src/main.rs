@@ -4,7 +4,9 @@ use rand::rngs::OsRng;
 use rand::RngCore;
 use rayon::prelude::*;
 use serde_json::json;
+use slip10::{BIP32Path, derive_key_from_path};
 use solana_sdk::signature::{Keypair, SeedDerivable, Signer};
+use std::str::FromStr;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
@@ -79,10 +81,22 @@ fn format_json_compact_array(value: &serde_json::Value) -> String {
     .to_string()
 }
 
+fn derive_solana_seed(seed: &[u8]) -> [u8; 32] {
+    // Solana BIP44 derivation path: m/44'/501'/0'/0'
+    // 501 is Solana's coin type in BIP44
+    let path = BIP32Path::from_str("m/44'/501'/0'/0'").unwrap();
+    
+    // Derive the key using SLIP10 (BIP32 for Ed25519)
+    let derived_key = derive_key_from_path(seed, slip10::Curve::Ed25519, &path).unwrap();
+    
+    // Return the private key bytes
+    derived_key.key
+}
+
 fn is_valid_base58_prefix(prefix: &str) -> bool {
     // Base58 alphabet: 123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz
     // Notable exclusions: 0, O, l (to avoid confusion)
-    const BASE58_ALPHABET: &str = "123456789ABCDEFGHIJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+    const BASE58_ALPHABET: &str = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
     if prefix.is_empty() {
         return false;
@@ -194,10 +208,15 @@ fn main() {
 
             let mnemonic = Mnemonic::from_entropy_in(Language::English, &entropy).unwrap();
             
-            // Generate keypair from the mnemonic seed to ensure they match
+            // Generate keypair from the mnemonic using proper Solana BIP44 derivation
             let seed = mnemonic.to_seed("");
-            // Create ed25519 keypair from seed
-            let keypair = Keypair::from_seed(&seed[..32]).unwrap();
+            
+            // Derive the key using Solana's BIP44 path: m/44'/501'/0'/0'
+            // This is a simplified implementation of BIP44 derivation for Solana
+            let derived_seed = derive_solana_seed(&seed);
+            
+            // Create keypair from the derived seed
+            let keypair = Keypair::from_seed(&derived_seed).unwrap();
             let pubkey = bs58::encode(keypair.pubkey().to_bytes()).into_string();
 
             local_iterations += 1;
