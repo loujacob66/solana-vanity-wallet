@@ -1,18 +1,17 @@
-use solana_sdk::signature::{Keypair, Signer};
-use bip39::{Mnemonic, Language};
-use bs58;
-use rand::rngs::OsRng;
+use bip39::{Language, Mnemonic};
 use clap::Parser;
-use rayon::prelude::*;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::Arc;
-use serde_json::json;
+use rand::rngs::OsRng;
 use rand::RngCore;
-use std::time::{Duration, Instant};
-use std::thread;
+use rayon::prelude::*;
+use serde_json::json;
+use solana_sdk::signature::{Keypair, Signer};
 use std::fs;
 use std::io::Write;
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::Arc;
+use std::thread;
+use std::time::{Duration, Instant};
 
 #[derive(Parser)]
 struct Args {
@@ -62,10 +61,10 @@ fn format_number(num: u64) -> String {
 
 fn format_json_compact_array(value: &serde_json::Value) -> String {
     let pretty = serde_json::to_string_pretty(value).unwrap();
-    
+
     // Use regex to replace the keypair_json array formatting
     let re = regex::Regex::new(r#""keypair_json": \[\s*([0-9,\s\n]+)\s*\]"#).unwrap();
-    
+
     re.replace_all(&pretty, |caps: &regex::Captures| {
         let array_content = &caps[1];
         // Extract just the numbers and commas, remove whitespace and newlines
@@ -74,26 +73,27 @@ fn format_json_compact_array(value: &serde_json::Value) -> String {
             .map(|s| s.trim())
             .filter(|s| !s.is_empty())
             .collect();
-        
+
         format!("\"keypair_json\": [{}]", numbers.join(", "))
-    }).to_string()
+    })
+    .to_string()
 }
 
 fn is_valid_base58_prefix(prefix: &str) -> bool {
     // Base58 alphabet: 123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz
     // Notable exclusions: 0, O, l (to avoid confusion)
     const BASE58_ALPHABET: &str = "123456789ABCDEFGHIJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-    
+
     if prefix.is_empty() {
         return false;
     }
-    
+
     prefix.chars().all(|c| BASE58_ALPHABET.contains(c))
 }
 
 fn main() {
     let args = Args::parse();
-    
+
     // Validate the prefix contains only valid Base58 characters
     if !is_valid_base58_prefix(&args.prefix) {
         eprintln!("❌ Error: Invalid prefix '{}'", args.prefix);
@@ -111,65 +111,74 @@ fn main() {
     let found = Arc::new(AtomicBool::new(false));
     let total_iterations = Arc::new(AtomicU64::new(0));
     let cpu_count = num_cpus::get();
-    
+
     let expected_iterations = calculate_expected_iterations(&args.prefix);
-    
+
     println!("🚀 Solana Vanity Wallet Generator");
     println!("==================================");
     println!("Prefix: {}", args.prefix);
     println!("Threads: {}", cpu_count);
-    println!("Expected iterations: {}", format_number(expected_iterations));
-    println!("Estimated difficulty: 1 in {}", format_number(expected_iterations * 2));
+    println!(
+        "Expected iterations: {}",
+        format_number(expected_iterations)
+    );
+    println!(
+        "Estimated difficulty: 1 in {}",
+        format_number(expected_iterations * 2)
+    );
     println!();
-    
+
     let start_time = Instant::now();
     let stats_counter = Arc::clone(&total_iterations);
     let stats_found = Arc::clone(&found);
-    
+
     // Statistics thread
     let stats_thread = thread::spawn(move || {
         let mut last_count = 0;
         let mut last_time = Instant::now();
-        
+
         while !stats_found.load(Ordering::Relaxed) {
             thread::sleep(Duration::from_secs(1));
-            
+
             let current_count = stats_counter.load(Ordering::Relaxed);
             let current_time = Instant::now();
             let elapsed = current_time.duration_since(last_time).as_secs_f64();
-            
+
             if elapsed >= 1.0 {
                 let iterations_per_second = ((current_count - last_count) as f64) / elapsed;
                 let total_elapsed = current_time.duration_since(start_time).as_secs_f64();
                 let overall_rate = current_count as f64 / total_elapsed;
-                
+
                 let progress = (current_count as f64 / expected_iterations as f64) * 100.0;
                 let eta_seconds = if overall_rate > 0.0 {
                     (expected_iterations as f64 - current_count as f64) / overall_rate
                 } else {
                     0.0
                 };
-                
-                print!("\r🔍 Iterations: {} | Rate: {}/s | Progress: {:.2}% | ETA: {} | Elapsed: {}", 
+
+                print!(
+                    "\r🔍 Iterations: {} | Rate: {}/s | Progress: {:.2}% | ETA: {} | Elapsed: {}",
                     format_number(current_count),
                     format_number(iterations_per_second as u64),
                     progress.min(100.0),
                     format_duration(eta_seconds),
                     format_duration(total_elapsed)
                 );
-                
+
                 use std::io::{self, Write};
                 io::stdout().flush().unwrap();
-                
+
                 last_count = current_count;
                 last_time = current_time;
             }
         }
     });
-    
+
     // Result storage
-    let result_data = Arc::new(parking_lot::Mutex::new(None::<(String, String, String, Vec<u8>, u64, f64)>));
-    
+    let result_data = Arc::new(parking_lot::Mutex::new(
+        None::<(String, String, String, Vec<u8>, u64, f64)>,
+    ));
+
     // Worker threads
     (0..cpu_count).into_par_iter().for_each(|_| {
         let local_found = Arc::clone(&found);
@@ -177,18 +186,18 @@ fn main() {
         let local_result = Arc::clone(&result_data);
         let mut rng = OsRng;
         let mut local_iterations = 0u64;
-        
+
         while !local_found.load(Ordering::Relaxed) {
             // Generate 16 bytes of entropy for 12-word mnemonic
             let mut entropy = [0u8; 16];
             rng.fill_bytes(&mut entropy);
-            
+
             let mnemonic = Mnemonic::from_entropy_in(Language::English, &entropy).unwrap();
             let keypair = Keypair::new();
             let pubkey = bs58::encode(keypair.pubkey().to_bytes()).into_string();
 
             local_iterations += 1;
-            
+
             // Update global counter every 1000 iterations to reduce contention
             if local_iterations % 1000 == 0 {
                 local_counter.fetch_add(1000, Ordering::Relaxed);
@@ -197,44 +206,54 @@ fn main() {
             if pubkey.starts_with(&args.prefix) {
                 local_found.store(true, Ordering::Relaxed);
                 local_counter.fetch_add(local_iterations % 1000, Ordering::Relaxed);
-                
+
                 let secret_key = bs58::encode(keypair.to_bytes()).into_string();
                 let keypair_bytes = keypair.to_bytes().to_vec();
                 let final_iterations = local_counter.load(Ordering::Relaxed);
                 let elapsed_time = start_time.elapsed().as_secs_f64();
-                
+
                 *local_result.lock() = Some((
                     mnemonic.to_string(),
                     pubkey,
                     secret_key,
                     keypair_bytes,
                     final_iterations,
-                    elapsed_time
+                    elapsed_time,
                 ));
                 break;
             }
         }
     });
-    
+
     // Wait for statistics thread to finish
     stats_thread.join().unwrap();
-    
+
     // Print final results
     let result = result_data.lock().take();
-    
-    if let Some((mnemonic, pubkey, secret_key, keypair_bytes, final_iterations, elapsed_time)) = result {
+
+    if let Some((mnemonic, pubkey, secret_key, keypair_bytes, final_iterations, elapsed_time)) =
+        result
+    {
         println!("\n");
         println!("🎉 SUCCESS! Vanity wallet generated!");
         println!("====================================");
         println!("Total iterations: {}", format_number(final_iterations));
         println!("Time elapsed: {}", format_duration(elapsed_time));
-        println!("Average rate: {}/s", format_number((final_iterations as f64 / elapsed_time) as u64));
-        println!("Luck factor: {:.2}x {} than expected", 
+        println!(
+            "Average rate: {}/s",
+            format_number((final_iterations as f64 / elapsed_time) as u64)
+        );
+        println!(
+            "Luck factor: {:.2}x {} than expected",
             expected_iterations as f64 / final_iterations as f64,
-            if final_iterations < expected_iterations { "better" } else { "worse" }
+            if final_iterations < expected_iterations {
+                "better"
+            } else {
+                "worse"
+            }
         );
         println!();
-        
+
         // Prepare output data
         let output = if args.format == "json" {
             json!({
@@ -258,11 +277,11 @@ fn main() {
                 "keypair_json": keypair_bytes
             })
         };
-        
+
         // Serialize output to JSON string with compact keypair array
         let output_string = format_json_compact_array(&output);
         println!("{}", output_string);
-        
+
         // Determine log file path
         let output_dir = Path::new("output");
         if !output_dir.exists() {
@@ -271,9 +290,10 @@ fn main() {
         let wallet_prefix = &pubkey[..10.min(pubkey.len())];
         let file_name = format!("{}_output.json", wallet_prefix);
         let file_path = output_dir.join(file_name);
-        
+
         // Write the output to the file
         let mut file = fs::File::create(file_path).expect("Unable to create log file");
-        file.write_all(output_string.as_bytes()).expect("Unable to write data");
+        file.write_all(output_string.as_bytes())
+            .expect("Unable to write data");
     }
 }
