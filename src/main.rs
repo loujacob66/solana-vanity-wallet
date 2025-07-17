@@ -255,32 +255,19 @@ fn main() {
         println!();
 
         // Prepare output data
-        let output = if args.format == "json" {
-            json!({
-                "mnemonic": mnemonic,
-                "public_key": pubkey,
-                "secret_key": secret_key,
-                "keypair_json": keypair_bytes,
-                "statistics": {
-                    "iterations": final_iterations,
-                    "elapsed_seconds": elapsed_time,
-                    "iterations_per_second": final_iterations as f64 / elapsed_time,
-                    "expected_iterations": expected_iterations,
-                    "luck_factor": expected_iterations as f64 / final_iterations as f64
-                }
-            })
-        } else {
-            json!({
-                "mnemonic": mnemonic,
-                "public_key": pubkey,
-                "secret_key": secret_key,
-                "keypair_json": keypair_bytes
-            })
-        };
-
-        // Serialize output to JSON string with compact keypair array
-        let output_string = format_json_compact_array(&output);
-        println!("{}", output_string);
+        let output_json = json!({
+            "mnemonic": mnemonic,
+            "public_key": pubkey,
+            "secret_key": secret_key,
+            "keypair_json": keypair_bytes,
+            "statistics": {
+                "iterations": final_iterations,
+                "elapsed_seconds": elapsed_time,
+                "iterations_per_second": final_iterations as f64 / elapsed_time,
+                "expected_iterations": expected_iterations,
+                "luck_factor": expected_iterations as f64 / final_iterations as f64
+            }
+        });
 
         // Determine log file path
         let output_dir = Path::new("output");
@@ -288,12 +275,60 @@ fn main() {
             fs::create_dir(output_dir).expect("Unable to create output directory");
         }
         let wallet_prefix = &pubkey[..10.min(pubkey.len())];
-        let file_name = format!("{}_output.json", wallet_prefix);
-        let file_path = output_dir.join(file_name);
-
-        // Write the output to the file
-        let mut file = fs::File::create(file_path).expect("Unable to create log file");
-        file.write_all(output_string.as_bytes())
-            .expect("Unable to write data");
+        
+        if args.format == "json" {
+            // JSON format: print and save as JSON
+            let output_string = format_json_compact_array(&output_json);
+            println!("{}", output_string);
+            
+            let file_name = format!("{}_output.json", wallet_prefix);
+            let file_path = output_dir.join(file_name);
+            let mut file = fs::File::create(file_path).expect("Unable to create log file");
+            file.write_all(output_string.as_bytes())
+                .expect("Unable to write data");
+        } else {
+            // Text format: print formatted text, save as text file
+            let console_output = format!(
+                "Mnemonic: {}\nPublic Key: {}\nSecret Key: {}\nKeypair JSON: [{}]",
+                mnemonic,
+                pubkey,
+                secret_key,
+                keypair_bytes.iter().map(|b| b.to_string()).collect::<Vec<_>>().join(", ")
+            );
+            println!("{}", console_output);
+            
+            let file_output = format!(
+                "Solana Vanity Wallet Generated\n\
+                ==============================\n\
+                Mnemonic: {}\n\
+                Public Key: {}\n\
+                Secret Key: {}\n\
+                Keypair JSON: [{}]\n\
+                \n\
+                Statistics:\n\
+                -----------\n\
+                Total iterations: {}\n\
+                Time elapsed: {}\n\
+                Average rate: {}/s\n\
+                Expected iterations: {}\n\
+                Luck factor: {:.2}x {} than expected\n",
+                mnemonic,
+                pubkey,
+                secret_key,
+                keypair_bytes.iter().map(|b| b.to_string()).collect::<Vec<_>>().join(", "),
+                format_number(final_iterations),
+                format_duration(elapsed_time),
+                format_number((final_iterations as f64 / elapsed_time) as u64),
+                format_number(expected_iterations),
+                expected_iterations as f64 / final_iterations as f64,
+                if final_iterations < expected_iterations { "better" } else { "worse" }
+            );
+            
+            let file_name = format!("{}_output.txt", wallet_prefix);
+            let file_path = output_dir.join(file_name);
+            let mut file = fs::File::create(file_path).expect("Unable to create log file");
+            file.write_all(file_output.as_bytes())
+                .expect("Unable to write data");
+        }
     }
 }

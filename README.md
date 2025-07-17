@@ -165,25 +165,55 @@ Examples of valid prefixes: ABC, Sol, 123, MyWallet, IJKL
 Examples of invalid prefixes: 0, O, l, _, +, =, /
 ```
 
+## Output Formats
+
+### Text Format (Default)
+- **Console**: Human-readable formatted output showing wallet details
+- **File**: Saves as `{prefix}_output.txt` with detailed statistics and wallet info
+
+### JSON Format
+- **Console**: Structured JSON with complete statistics
+- **File**: Saves as `{prefix}_output.json` with all data in JSON format
+
+Both formats include:
+- BIP39 mnemonic phrase
+- Public key (Base58)
+- Secret key (Base58)
+- Keypair JSON array
+- Generation statistics (iterations, timing, etc.)
+
 ## Automatic Logging
 
-Every run is automatically logged to a JSON file in the `output/` directory using the first 10 characters of the generated wallet:
+Every run is automatically logged to a file in the `output/` directory using the first 10 characters of the generated wallet:
 
 ```bash
 # Files are named with the first 10 characters of the public key
 output/
-├── BbGW5Yqtsa_output.json
-├── C744n3594g_output.json
-├── FUCKG3EWss_output.json
+├── BbGW5Yqtsa_output.txt    # Text format output
+├── C744n3594g_output.json   # JSON format output
+├── FUCKG3EWss_output.txt    # Text format output
 └── ...
 ```
 
-Each log file contains:
-- **Wallet data**: Mnemonic, public key, secret key, and keypair JSON array
-- **Statistics**: Iterations, elapsed time, rate, and luck factor (when using `--format json`)
-- **Metadata**: Timestamp and generation parameters
+### Text Log File Format
+```
+Solana Vanity Wallet Generated
+==============================
+Mnemonic: word1 word2 word3 ... word12
+Public Key: Base58EncodedPublicKey
+Secret Key: Base58EncodedSecretKey
+Keypair JSON: [1, 2, 3, ...]
 
-### Log File Format
+Statistics:
+-----------
+Total iterations: 12,345
+Time elapsed: 1.2s
+Average rate: 10.0K/s
+Expected iterations: 58.0K
+Luck factor: 4.70x better than expected
+```
+
+### JSON Log File Format
 ```json
 {
   "mnemonic": "word1 word2 word3 ... word12",
