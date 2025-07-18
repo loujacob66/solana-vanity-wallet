@@ -4,12 +4,12 @@ use rand::rngs::OsRng;
 use rand::RngCore;
 use rayon::prelude::*;
 use serde_json::json;
-use slip10::{BIP32Path, derive_key_from_path};
+use slip10::{derive_key_from_path, BIP32Path};
 use solana_sdk::signature::{Keypair, SeedDerivable, Signer};
-use std::str::FromStr;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
+use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::thread;
@@ -40,7 +40,7 @@ fn calculate_expected_iterations(prefix: &str) -> u64 {
 
 fn format_duration(seconds: f64) -> String {
     if seconds < 60.0 {
-        format!("{:.1}s", seconds)
+        format!("{seconds:.1}s")
     } else if seconds < 3600.0 {
         format!("{:.1}m", seconds / 60.0)
     } else if seconds < 86400.0 {
@@ -52,7 +52,7 @@ fn format_duration(seconds: f64) -> String {
 
 fn format_number(num: u64) -> String {
     if num < 1_000 {
-        format!("{}", num)
+        format!("{num}")
     } else if num < 1_000_000 {
         format!("{:.1}K", num as f64 / 1_000.0)
     } else if num < 1_000_000_000 {
@@ -88,10 +88,10 @@ fn derive_solana_seed(seed: &[u8]) -> [u8; 32] {
     // Solana BIP44 derivation path: m/44'/501'/0'/0'
     // 501 is Solana's coin type in BIP44
     let path = BIP32Path::from_str("m/44'/501'/0'/0'").unwrap();
-    
+
     // Derive the key using SLIP10 (BIP32 for Ed25519)
     let derived_key = derive_key_from_path(seed, slip10::Curve::Ed25519, &path).unwrap();
-    
+
     // Return the private key bytes
     derived_key.key
 }
@@ -134,8 +134,15 @@ fn main() {
     println!("🚀 Solana Vanity Wallet Generator");
     println!("==================================");
     println!("Prefix: {}", args.prefix);
-    println!("Mode: {}", if args.with_mnemonic { "With mnemonic (slower, wallet-compatible)" } else { "Fast mode (no mnemonic)" });
-    println!("Threads: {}", cpu_count);
+    println!(
+        "Mode: {}",
+        if args.with_mnemonic {
+            "With mnemonic (slower, wallet-compatible)"
+        } else {
+            "Fast mode (no mnemonic)"
+        }
+    );
+    println!("Threads: {cpu_count}");
     println!(
         "Expected iterations: {}",
         format_number(expected_iterations)
@@ -212,28 +219,28 @@ fn main() {
                 let mut entropy = [0u8; 16];
                 rng.fill_bytes(&mut entropy);
                 let mnemonic = Mnemonic::from_entropy_in(Language::English, &entropy).unwrap();
-                
+
                 // Generate keypair from the mnemonic using proper Solana BIP44 derivation
                 let seed = mnemonic.to_seed("");
                 let derived_seed = derive_solana_seed(&seed);
                 let keypair = Keypair::from_seed(&derived_seed).unwrap();
-                
+
                 (Some(mnemonic.to_string()), keypair)
             } else {
                 // Fast mode: Generate keypair directly from random seed
                 let mut seed = [0u8; 32];
                 rng.fill_bytes(&mut seed);
                 let keypair = Keypair::from_seed(&seed).unwrap();
-                
+
                 (None, keypair)
             };
-            
+
             let pubkey = bs58::encode(keypair.pubkey().to_bytes()).into_string();
 
             local_iterations += 1;
 
             // Update global counter every 1000 iterations to reduce contention
-            if local_iterations % 1000 == 0 {
+            if local_iterations.is_multiple_of(1000) {
                 local_counter.fetch_add(1000, Ordering::Relaxed);
             }
 
@@ -309,29 +316,35 @@ fn main() {
             fs::create_dir(output_dir).expect("Unable to create output directory");
         }
         let wallet_prefix = &pubkey[..10.min(pubkey.len())];
-        
+
         if args.format == "json" {
             // JSON format: print and save as JSON
             let output_string = format_json_compact_array(&output_json);
-            println!("{}", output_string);
-            
-            let file_name = format!("{}_output.json", wallet_prefix);
+            println!("{output_string}");
+
+            let file_name = format!("{wallet_prefix}_output.json");
             let file_path = output_dir.join(file_name);
             let mut file = fs::File::create(file_path).expect("Unable to create log file");
             file.write_all(output_string.as_bytes())
                 .expect("Unable to write data");
         } else {
             // Text format: print formatted text, save as text file
-            let mnemonic_display = mnemonic.as_ref().map(|m| m.as_str()).unwrap_or("[Not generated - use --with-mnemonic flag]");
+            let mnemonic_display = mnemonic
+                .as_deref()
+                .unwrap_or("[Not generated - use --with-mnemonic flag]");
             let console_output = format!(
                 "Mnemonic: {}\nPublic Key: {}\nSecret Key: {}\nKeypair JSON: [{}]",
                 mnemonic_display,
                 pubkey,
                 secret_key,
-                keypair_bytes.iter().map(|b| b.to_string()).collect::<Vec<_>>().join(", ")
+                keypair_bytes
+                    .iter()
+                    .map(|b| b.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
             );
-            println!("{}", console_output);
-            
+            println!("{console_output}");
+
             let file_output = format!(
                 "Solana Vanity Wallet Generated\n\
                 ==============================\n\
@@ -350,16 +363,24 @@ fn main() {
                 mnemonic_display,
                 pubkey,
                 secret_key,
-                keypair_bytes.iter().map(|b| b.to_string()).collect::<Vec<_>>().join(", "),
+                keypair_bytes
+                    .iter()
+                    .map(|b| b.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", "),
                 format_number(final_iterations),
                 format_duration(elapsed_time),
                 format_number((final_iterations as f64 / elapsed_time) as u64),
                 format_number(expected_iterations),
                 expected_iterations as f64 / final_iterations as f64,
-                if final_iterations < expected_iterations { "better" } else { "worse" }
+                if final_iterations < expected_iterations {
+                    "better"
+                } else {
+                    "worse"
+                }
             );
-            
-            let file_name = format!("{}_output.txt", wallet_prefix);
+
+            let file_name = format!("{wallet_prefix}_output.txt");
             let file_path = output_dir.join(file_name);
             let mut file = fs::File::create(file_path).expect("Unable to create log file");
             file.write_all(file_output.as_bytes())
