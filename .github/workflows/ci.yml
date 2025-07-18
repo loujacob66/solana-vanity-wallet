@@ -61,7 +61,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest]
+        # Temporarily disable Windows build to debug
+        # os: [ubuntu-latest, windows-latest, macos-latest]
     
     steps:
     - uses: actions/checkout@v4
@@ -77,6 +79,8 @@ jobs:
           ~/.cargo/git
           target
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
     
     - name: Build
       run: cargo build --release
@@ -86,7 +90,8 @@ jobs:
       with:
         name: solana-vanity-wallet-${{ matrix.os }}
         path: |
-          target/release/solana-vanity-wallet${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+          target/release/solana-vanity-wallet*
+        if-no-files-found: error
 
   security:
     name: Security Audit
