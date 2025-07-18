@@ -25,6 +25,9 @@ struct Args {
     /// Test first character distribution
     #[arg(long)]
     test_chars: bool,
+    /// Generate mnemonic seed phrase (slower but recoverable)
+    #[arg(long)]
+    with_mnemonic: bool,
 }
 
 fn calculate_expected_iterations(prefix: &str) -> u64 {
@@ -131,6 +134,7 @@ fn main() {
     println!("🚀 Solana Vanity Wallet Generator");
     println!("==================================");
     println!("Prefix: {}", args.prefix);
+    println!("Mode: {}", if args.with_mnemonic { "With mnemonic (slower, wallet-compatible)" } else { "Fast mode (no mnemonic)" });
     println!("Threads: {}", cpu_count);
     println!(
         "Expected iterations: {}",
@@ -190,7 +194,7 @@ fn main() {
 
     // Result storage
     let result_data = Arc::new(parking_lot::Mutex::new(
-        None::<(String, String, String, Vec<u8>, u64, f64)>,
+        None::<(Option<String>, String, String, Vec<u8>, u64, f64)>,
     ));
 
     // Worker threads
@@ -198,25 +202,32 @@ fn main() {
         let local_found = Arc::clone(&found);
         let local_counter = Arc::clone(&total_iterations);
         let local_result = Arc::clone(&result_data);
+        let use_mnemonic = args.with_mnemonic;
         let mut rng = OsRng;
         let mut local_iterations = 0u64;
 
         while !local_found.load(Ordering::Relaxed) {
-            // Generate 16 bytes of entropy for 12-word mnemonic
-            let mut entropy = [0u8; 16];
-            rng.fill_bytes(&mut entropy);
-
-            let mnemonic = Mnemonic::from_entropy_in(Language::English, &entropy).unwrap();
+            let (mnemonic_opt, keypair) = if use_mnemonic {
+                // Slow mode: Generate mnemonic and derive keypair (compatible with wallets)
+                let mut entropy = [0u8; 16];
+                rng.fill_bytes(&mut entropy);
+                let mnemonic = Mnemonic::from_entropy_in(Language::English, &entropy).unwrap();
+                
+                // Generate keypair from the mnemonic using proper Solana BIP44 derivation
+                let seed = mnemonic.to_seed("");
+                let derived_seed = derive_solana_seed(&seed);
+                let keypair = Keypair::from_seed(&derived_seed).unwrap();
+                
+                (Some(mnemonic.to_string()), keypair)
+            } else {
+                // Fast mode: Generate keypair directly from random seed
+                let mut seed = [0u8; 32];
+                rng.fill_bytes(&mut seed);
+                let keypair = Keypair::from_seed(&seed).unwrap();
+                
+                (None, keypair)
+            };
             
-            // Generate keypair from the mnemonic using proper Solana BIP44 derivation
-            let seed = mnemonic.to_seed("");
-            
-            // Derive the key using Solana's BIP44 path: m/44'/501'/0'/0'
-            // This is a simplified implementation of BIP44 derivation for Solana
-            let derived_seed = derive_solana_seed(&seed);
-            
-            // Create keypair from the derived seed
-            let keypair = Keypair::from_seed(&derived_seed).unwrap();
             let pubkey = bs58::encode(keypair.pubkey().to_bytes()).into_string();
 
             local_iterations += 1;
@@ -236,7 +247,7 @@ fn main() {
                 let elapsed_time = start_time.elapsed().as_secs_f64();
 
                 *local_result.lock() = Some((
-                    mnemonic.to_string(),
+                    mnemonic_opt,
                     pubkey,
                     secret_key,
                     keypair_bytes,
@@ -311,9 +322,10 @@ fn main() {
                 .expect("Unable to write data");
         } else {
             // Text format: print formatted text, save as text file
+            let mnemonic_display = mnemonic.as_ref().map(|m| m.as_str()).unwrap_or("[Not generated - use --with-mnemonic flag]");
             let console_output = format!(
                 "Mnemonic: {}\nPublic Key: {}\nSecret Key: {}\nKeypair JSON: [{}]",
-                mnemonic,
+                mnemonic_display,
                 pubkey,
                 secret_key,
                 keypair_bytes.iter().map(|b| b.to_string()).collect::<Vec<_>>().join(", ")
@@ -335,7 +347,7 @@ fn main() {
                 Average rate: {}/s\n\
                 Expected iterations: {}\n\
                 Luck factor: {:.2}x {} than expected\n",
-                mnemonic,
+                mnemonic_display,
                 pubkey,
                 secret_key,
                 keypair_bytes.iter().map(|b| b.to_string()).collect::<Vec<_>>().join(", "),

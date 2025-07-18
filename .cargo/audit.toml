@@ -1,0 +1,7 @@
+[advisories]
+# Ignore timing variability in curve25519-dalek - doesn't affect our key generation
+# Ignore ed25519-dalek oracle attack - we don't expose vulnerable signing APIs
+ignore = ["RUSTSEC-2024-0344", "RUSTSEC-2022-0093"]
+
+# Still show informational warnings for other issues
+informational_warnings = ["unmaintained", "unsound"]

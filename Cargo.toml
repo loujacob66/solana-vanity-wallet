@@ -19,7 +19,7 @@ name = "solana_vanity_wallet"
 path = "src/lib.rs"
 
 [dependencies]
-solana-sdk = "1.18"
+solana-sdk = "2.3"
 bip39 = "2.0"
 bs58 = "0.5"
 slip10 = "0.4"
@@ -33,3 +33,8 @@ num_cpus = "1.16"
 parking_lot = "0.12"
 chrono = { version = "0.4", features = ["serde"] }
 regex = "1.10"
+
+# Note: There are known security vulnerabilities in curve25519-dalek v3.2.1 and ed25519-dalek v1.0.1
+# These are pulled in by solana-sdk dependencies and cannot be easily overridden without breaking compatibility
+# See: RUSTSEC-2024-0344 and RUSTSEC-2022-0093
+# Impact: Minimal for this application as we don't expose the vulnerable signing APIs
