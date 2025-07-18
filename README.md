@@ -16,12 +16,36 @@ A fast and efficient Solana vanity wallet generator that creates wallets with cu
 
 ## Installation
 
-1. Make sure you have Rust installed: https://rustup.rs/
-2. Clone or download this project
-3. Build the release version:
-   ```bash
-   cargo build --release
-   ```
+### Quick Install (Recommended)
+
+```bash
+# Install latest release (Linux/macOS)
+curl -fsSL https://raw.githubusercontent.com/ljacob/solana-vanity-wallet/master/install.sh | sh
+```
+
+### Download Pre-built Binaries
+
+1. Go to [Releases](https://github.com/ljacob/solana-vanity-wallet/releases)
+2. Download the appropriate binary for your OS:
+   - `solana-vanity-wallet-linux-x64.tar.gz` (Linux)
+   - `solana-vanity-wallet-windows-x64.exe.zip` (Windows)
+   - `solana-vanity-wallet-macos-x64.tar.gz` (macOS Intel)
+   - `solana-vanity-wallet-macos-arm64.tar.gz` (macOS Apple Silicon)
+3. Extract and run
+
+### From Cargo (Rust Users)
+
+```bash
+cargo install solana-vanity-wallet
+```
+
+### From Source
+
+```bash
+git clone https://github.com/ljacob/solana-vanity-wallet.git
+cd solana-vanity-wallet
+cargo build --release
+```
 
 ## Usage
 
