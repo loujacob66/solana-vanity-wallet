@@ -16,35 +16,42 @@ A fast and efficient Solana vanity wallet generator that creates wallets with cu
 
 ## Installation
 
-### Quick Install (Recommended)
+### Prerequisites
+- [Rust](https://rustup.rs/) (latest stable version)
+- Git (for source installation)
 
-```bash
-# Install latest release (Linux/macOS)
-curl -fsSL https://raw.githubusercontent.com/ljacob/solana-vanity-wallet/master/install.sh | sh
-```
-
-### Download Pre-built Binaries
-
-1. Go to [Releases](https://github.com/ljacob/solana-vanity-wallet/releases)
-2. Download the appropriate binary for your OS:
-   - `solana-vanity-wallet-linux-x64.tar.gz` (Linux)
-   - `solana-vanity-wallet-windows-x64.exe.zip` (Windows)
-   - `solana-vanity-wallet-macos-x64.tar.gz` (macOS Intel)
-   - `solana-vanity-wallet-macos-arm64.tar.gz` (macOS Apple Silicon)
-3. Extract and run
-
-### From Cargo (Rust Users)
-
+### Method 1: Install from crates.io (Recommended)
 ```bash
 cargo install solana-vanity-wallet
 ```
 
-### From Source
-
+### Method 2: Install from source (Latest)
 ```bash
-git clone https://github.com/ljacob/solana-vanity-wallet.git
+# Install latest release
+cargo install --git https://github.com/loujacob66/solana-vanity-wallet
+
+# Or install specific version
+cargo install --git https://github.com/loujacob66/solana-vanity-wallet --tag v0.3.0
+```
+
+### Method 3: Build from source (Development)
+```bash
+# Clone the repository
+git clone https://github.com/loujacob66/solana-vanity-wallet.git
 cd solana-vanity-wallet
+
+# Build and install
+cargo install --path .
+
+# Or just build for testing
 cargo build --release
+./target/release/solana-vanity-wallet --help
+```
+
+### Verify Installation
+```bash
+# Check that it's installed correctly
+solana-vanity-wallet --help
 ```
 
 ## Usage
@@ -52,10 +59,10 @@ cargo build --release
 ### Basic Usage
 ```bash
 # Generate a wallet with prefix "ABC"
-./target/release/solana-vanity-wallet ABC
+solana-vanity-wallet ABC
 
 # Generate a wallet with prefix "Sol" and JSON output
-./target/release/solana-vanity-wallet --format json Sol
+solana-vanity-wallet --format json Sol
 ```
 
 ### Output Example (Text Format)
@@ -139,13 +146,13 @@ Options:
 
 ```bash
 # Quick generation with single character
-./target/release/solana-vanity-wallet 1
+solana-vanity-wallet 1
 
 # Generate wallet starting with "Sol"
-./target/release/solana-vanity-wallet Sol
+solana-vanity-wallet Sol
 
 # Generate with JSON output for scripting
-./target/release/solana-vanity-wallet --format json MyPrefix > wallet.json
+solana-vanity-wallet --format json MyPrefix > wallet.json
 ```
 
 ## Prefix Validation
@@ -164,20 +171,20 @@ The application validates that all characters in your prefix are valid Base58 ch
 ### Examples:
 ```bash
 # Valid prefixes
-./target/release/solana-vanity-wallet ABC
-./target/release/solana-vanity-wallet Sol
-./target/release/solana-vanity-wallet 123
-./target/release/solana-vanity-wallet MyWallet
+solana-vanity-wallet ABC
+solana-vanity-wallet Sol
+solana-vanity-wallet 123
+solana-vanity-wallet MyWallet
 
 # Invalid prefixes (will show error)
-./target/release/solana-vanity-wallet 0     # Contains zero
-./target/release/solana-vanity-wallet Test_ # Contains underscore
-./target/release/solana-vanity-wallet SOL0  # Contains zero
+solana-vanity-wallet 0     # Contains zero
+solana-vanity-wallet Test_ # Contains underscore
+solana-vanity-wallet SOL0  # Contains zero
 ```
 
 ### Error Example:
 ```bash
-$ ./target/release/solana-vanity-wallet _
+$ solana-vanity-wallet _
 ❌ Error: Invalid prefix '_'
 
 Valid Base58 characters are:
