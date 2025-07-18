@@ -1,6 +1,6 @@
 [package]
 name = "solana-vanity-wallet"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 authors = ["Solana Vanity Wallet Contributors"]
 description = "A fast and efficient Solana vanity wallet generator with real-time statistics"
