@@ -34,6 +34,10 @@ parking_lot = "0.12"
 chrono = { version = "0.4", features = ["serde"] }
 regex = "1.10"
 
+# Windows-specific OpenSSL vendoring for CI builds
+[target.'cfg(windows)'.dependencies]
+openssl = { version = "0.10", features = ["vendored"] }
+
 # Note: There are known security vulnerabilities in curve25519-dalek v3.2.1 and ed25519-dalek v1.0.1
 # These are pulled in by solana-sdk dependencies and cannot be easily overridden without breaking compatibility
 # See: RUSTSEC-2024-0344 and RUSTSEC-2022-0093
