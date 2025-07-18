@@ -209,6 +209,22 @@ jobs:
     - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
     
+    - name: Install OpenSSL (Windows)
+      uses: ilammy/msvc-dev-cmd@v1
+      
+    - name: Setup OpenSSL
+      run: |
+        echo "Setting up OpenSSL environment variables..."
+        echo "OPENSSL_STATIC=1" >> $env:GITHUB_ENV
+        echo "OPENSSL_INCLUDE_DIR=C:\OpenSSL-Win64\include" >> $env:GITHUB_ENV
+        echo "OPENSSL_LIB_DIR=C:\OpenSSL-Win64\lib" >> $env:GITHUB_ENV
+        echo "OPENSSL_DIR=C:\OpenSSL-Win64" >> $env:GITHUB_ENV
+        
+    - name: Install dependencies
+      run: |
+        # Use chocolatey to install OpenSSL
+        choco install openssl --version 3.1.1 --force -y
+    
     - name: Cache cargo
       uses: actions/cache@v4
       with:
@@ -226,8 +242,10 @@ jobs:
         rustc --version
         echo "Checking Cargo version..."
         cargo --version
-        echo "Checking target..."
-        rustc --print target-list | grep windows
+        echo "Checking OpenSSL..."
+        echo "OPENSSL_DIR=$env:OPENSSL_DIR"
+        echo "OPENSSL_LIB_DIR=$env:OPENSSL_LIB_DIR"
+        echo "OPENSSL_INCLUDE_DIR=$env:OPENSSL_INCLUDE_DIR"
     
     - name: Build (debug mode for faster compilation)
       run: |
