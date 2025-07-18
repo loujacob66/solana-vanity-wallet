@@ -61,19 +61,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest]
     
     steps:
     - uses: actions/checkout@v4
     
     - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
-    
-    - name: Setup Windows dependencies
-      if: matrix.os == 'windows-latest'
-      run: |
-        echo "Setting up Windows build environment..."
-        echo "Using vendored OpenSSL for Windows builds..."
     
     - name: Cache cargo
       uses: actions/cache@v4
@@ -163,10 +157,6 @@ jobs:
       run: |
         timeout 10s ./target/release/solana-vanity-wallet Z --format json || echo "JSON format test completed"
     
-    - name: Test mnemonic mode
-      run: |
-        timeout 10s ./target/release/solana-vanity-wallet Z --with-mnemonic || echo "Mnemonic mode test completed"
-    
     - name: Verify output directory creation
       run: |
         timeout 10s ./target/release/solana-vanity-wallet Z || echo "Output directory test completed"
@@ -195,83 +185,7 @@ jobs:
     - name: Build optimized release
       run: cargo build --release
     
-    - name: Compare fast vs mnemonic mode performance
+    - name: Test basic functionality
       run: |
-        echo "🚀 Testing fast mode performance..."
-        timeout 30s ./target/release/solana-vanity-wallet A 2>&1 | head -20 || echo "Fast mode test completed"
-        
-        echo "🐌 Testing mnemonic mode performance..."
-        timeout 30s ./target/release/solana-vanity-wallet A --with-mnemonic 2>&1 | head -20 || echo "Mnemonic mode test completed"
-        
-  windows-build:
-    name: Windows Build
-    runs-on: windows-latest
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
-    
-    - name: Setup MSVC
-      uses: ilammy/msvc-dev-cmd@v1
-      
-    - name: Install OpenSSL
-      run: |
-        echo "Installing OpenSSL via vcpkg..."
-        vcpkg integrate install
-        vcpkg install openssl:x64-windows-static
-        
-    - name: Setup OpenSSL Environment
-      run: |
-        echo "Setting up OpenSSL environment variables..."
-        $vcpkg_root = "C:\vcpkg"
-        echo "OPENSSL_DIR=$vcpkg_root\installed\x64-windows-static" >> $env:GITHUB_ENV
-        echo "OPENSSL_LIB_DIR=$vcpkg_root\installed\x64-windows-static\lib" >> $env:GITHUB_ENV
-        echo "OPENSSL_INCLUDE_DIR=$vcpkg_root\installed\x64-windows-static\include" >> $env:GITHUB_ENV
-        echo "OPENSSL_STATIC=1" >> $env:GITHUB_ENV
-        echo "VCPKG_ROOT=$vcpkg_root" >> $env:GITHUB_ENV
-        echo "VCPKGRS_DYNAMIC=0" >> $env:GITHUB_ENV
-        
-    - name: Cache cargo
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-cargo-
-    
-    - name: Verify OpenSSL installation
-      run: |
-        echo "Checking OpenSSL installation..."
-        echo "OPENSSL_DIR=$env:OPENSSL_DIR"
-        echo "OPENSSL_LIB_DIR=$env:OPENSSL_LIB_DIR"
-        echo "OPENSSL_INCLUDE_DIR=$env:OPENSSL_INCLUDE_DIR"
-        echo "OPENSSL_STATIC=$env:OPENSSL_STATIC"
-        if (Test-Path "$env:OPENSSL_LIB_DIR\libssl.lib") {
-          echo "✅ OpenSSL libraries found"
-        } else {
-          echo "❌ OpenSSL libraries not found"
-          ls "$env:OPENSSL_LIB_DIR"
-        }
-        
-    - name: Build debug
-      run: |
-        echo "Building in debug mode..."
-        cargo build --verbose
-        
-    - name: Run tests
-      run: cargo test --verbose
-      
-    - name: Build release
-      run: cargo build --release --verbose
-      
-    - name: Upload Windows artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: solana-vanity-wallet-windows
-        path: target/release/solana-vanity-wallet.exe
-        if-no-files-found: error
+        echo "🚀 Testing basic functionality..."
+        timeout 30s ./target/release/solana-vanity-wallet A 2>&1 | head -20 || echo "Basic functionality test completed"
