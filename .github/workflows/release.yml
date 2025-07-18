@@ -47,16 +47,16 @@ jobs:
           ${{ runner.os }}-${{ matrix.target }}-cargo-
     
     - name: Build release
-      run: cargo build --release --target ${{ matrix.target }}
+      run: cargo build --release
     
     - name: Strip binary (Linux and macOS)
-      run: strip target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
+      run: strip target/release/${{ matrix.artifact_name }}
     
     - name: Create archive
       shell: bash
       run: |
-        cd target/${{ matrix.target }}/release
-        tar czvf ../../../${{ matrix.asset_name }}.tar.gz ${{ matrix.artifact_name }}
+        cd target/release
+        tar czvf ../../${{ matrix.asset_name }}.tar.gz ${{ matrix.artifact_name }}
         echo "ASSET_PATH=../${{ matrix.asset_name }}.tar.gz" >> $GITHUB_ENV
     
     - name: Upload binaries to release
